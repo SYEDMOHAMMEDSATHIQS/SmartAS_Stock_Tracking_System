@@ -1,2 +1,2 @@
-# Low-Budget-Automated-Dispatch-System-Using-RFID-and-IoT-Integration
-In modern supply chains, automated tracking and dispatch systems are essential to ensure transparency, reliability, and efficiency.
+# SmartAS Stock Tracking System
+Real-time monitoring of items between Room A and Room B in warehouse
