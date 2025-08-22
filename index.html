@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartAS - Stock Tracking System</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #3498db;
+            --success: #2ecc71;
+            --warning: #f39c12;
+            --danger: #e74c3c;
+            --light: #ecf0f1;
+            --dark: #34495e;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background-color: var(--primary);
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            font-size: 2.2rem;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1rem;
+            opacity: 0.8;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .card-title {
+            font-size: 1.4rem;
+            color: var(--dark);
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        
+        .status-success {
+            background-color: var(--success);
+            color: white;
+        }
+        
+        .status-warning {
+            background-color: var(--warning);
+            color: white;
+        }
+        
+        .status-danger {
+            background-color: var(--danger);
+            color: white;
+        }
+        
+        .status-info {
+            background-color: var(--secondary);
+            color: white;
+        }
+        
+        .stock-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        
+        .stock-table th, .stock-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .stock-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        
+        .stock-table tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .timestamp {
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+        
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .summary-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .summary-card h3 {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            color: var(--dark);
+        }
+        
+        .summary-card .number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--secondary);
+        }
+        
+        .missing-item {
+            background-color: #ffebee;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-style: italic;
+            color: #7f8c8d;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 30px;
+            padding: 20px;
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>SmartAS Stock Tracking System</h1>
+            <p class="subtitle">Real-time monitoring of items between Room A and Room B</p>
+        </div>
+    </header>
+    
+    <div class="container">
+        <div class="summary-cards">
+            <div class="summary-card">
+                <h3>Total Items Tracked</h3>
+                <div class="number" id="total-items">0</div>
+            </div>
+            <div class="summary-card">
+                <h3>In Room A</h3>
+                <div class="number" id="room-a-count">0</div>
+            </div>
+            <div class="summary-card">
+                <h3>In Room B</h3>
+                <div class="number" id="room-b-count">0</div>
+            </div>
+            <div class="summary-card">
+                <h3>Missing Items</h3>
+                <div class="number" id="missing-count">0</div>
+            </div>
+        </div>
+        
+        <div class="dashboard">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Room A Activity</h2>
+                    <span class="status status-info" id="room-a-status">Active</span>
+                </div>
+                <div class="card-content">
+                    <table class="stock-table">
+                        <thead>
+                            <tr>
+                                <th>Stock ID</th>
+                                <th>Event</th>
+                                <th>Timestamp</th>
+                            </tr>
+                        </thead>
+                        <tbody id="room-a-table">
+                            <tr>
+                                <td colspan="3" class="loading">Loading data...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Room B Activity</h2>
+                    <span class="status status-info" id="room-b-status">Active</span>
+                </div>
+                <div class="card-content">
+                    <table class="stock-table">
+                        <thead>
+                            <tr>
+                                <th>Stock ID</th>
+                                <th>Event</th>
+                                <th>Timestamp</th>
+                            </tr>
+                        </thead>
+                        <tbody id="room-b-table">
+                            <tr>
+                                <td colspan="3" class="loading">Loading data...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Missing Items Alert</h2>
+                <span class="status status-danger" id="missing-status">Critical</span>
+            </div>
+            <div class="card-content">
+                <table class="stock-table">
+                    <thead>
+                        <tr>
+                            <th>Stock ID</th>
+                            <th>Last Seen</th>
+                            <th>Time Missing</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="missing-table">
+                        <tr>
+                            <td colspan="4" class="loading">No missing items detected</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <footer>
+        <div class="container">
+            <p>SmartAS Stock Tracking System &copy; 2025 | Real-time monitoring with ESP8266 and Firebase</p>
+        </div>
+    </footer>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyA8UiGYqFZoZteypTXHFnV-ghxKkaYOl-Y",
+            authDomain: "smartas-b8f3b.firebaseapp.com",
+            databaseURL: "https://smartas-b8f3b-default-rtdb.firebaseio.com",
+            projectId: "smartas-b8f3b",
+            storageBucket: "smartas-b8f3b.firebasestorage.app",
+            messagingSenderId: "94411478973",
+            appId: "1:94411478973:web:944480b8bc738a9c1664d4",
+            measurementId: "G-72P3NSVGM6"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // Reference to the stockTracking node in Firebase
+        const stockRef = database.ref('stockTracking');
+
+        // Arrays to store events
+        let roomAEvents = [];
+        let roomBEvents = [];
+        let missingItems = [];
+        
+        // Counters for summary
+        let totalItems = 0;
+        let inRoomA = 0;
+        let inRoomB = 0;
+        let missingCount = 0;
+
+        // Function to format timestamp
+        function formatTimestamp(timestamp) {
+            if (!timestamp) return 'N/A';
+            
+            const date = new Date(parseInt(timestamp));
+            return date.toLocaleString();
+        }
+
+        // Function to calculate time difference
+        function timeSince(timestamp) {
+            if (!timestamp) return 'N/A';
+            
+            const now = new Date().getTime();
+            const diff = now - parseInt(timestamp);
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+            
+            if (days > 0) return `${days}d ${hours % 24}h ago`;
+            if (hours > 0) return `${hours}h ${minutes % 60}m ago`;
+            if (minutes > 0) return `${minutes}m ago`;
+            return 'Just now';
+        }
+
+        // Function to update the UI with new data
+        function updateUI() {
+            // Update Room A table
+            const roomATable = document.getElementById('room-a-table');
+            roomATable.innerHTML = '';
+            
+            if (roomAEvents.length === 0) {
+                roomATable.innerHTML = '<tr><td colspan="3" class="loading">No activity in Room A</td></tr>';
+            } else {
+                roomAEvents.forEach(event => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${event.stockID}</td>
+                        <td><span class="status ${event.statusClass}">${event.type}</span></td>
+                        <td class="timestamp">${formatTimestamp(event.timestamp)}</td>
+                    `;
+                    roomATable.appendChild(row);
+                });
+            }
+            
+            // Update Room B table
+            const roomBTable = document.getElementById('room-b-table');
+            roomBTable.innerHTML = '';
+            
+            if (roomBEvents.length === 0) {
+                roomBTable.innerHTML = '<tr><td colspan="3" class="loading">No activity in Room B</td></tr>';
+            } else {
+                roomBEvents.forEach(event => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${event.stockID}</td>
+                        <td><span class="status ${event.statusClass}">${event.type}</span></td>
+                        <td class="timestamp">${formatTimestamp(event.timestamp)}</td>
+                    `;
+                    roomBTable.appendChild(row);
+                });
+            }
+            
+            // Update Missing Items table
+            const missingTable = document.getElementById('missing-table');
+            missingTable.innerHTML = '';
+            
+            if (missingItems.length === 0) {
+                missingTable.innerHTML = '<tr><td colspan="4" class="loading">No missing items detected</td></tr>';
+            } else {
+                missingItems.forEach(item => {
+                    const row = document.createElement('tr');
+                    row.classList.add('missing-item');
+                    row.innerHTML = `
+                        <td>${item.stockID}</td>
+                        <td class="timestamp">${formatTimestamp(item.lastSeen)}</td>
+                        <td>${timeSince(item.lastSeen)}</td>
+                        <td><span class="status status-danger">MISSING</span></td>
+                    `;
+                    missingTable.appendChild(row);
+                });
+            }
+            
+            // Update summary cards
+            document.getElementById('total-items').textContent = totalItems;
+            document.getElementById('room-a-count').textContent = inRoomA;
+            document.getElementById('room-b-count').textContent = inRoomB;
+            document.getElementById('missing-count').textContent = missingCount;
+        }
+
+        // Function to process data from Firebase
+        function processData(snapshot) {
+            roomAEvents = [];
+            roomBEvents = [];
+            missingItems = [];
+            
+            totalItems = 0;
+            inRoomA = 0;
+            inRoomB = 0;
+            missingCount = 0;
+            
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                totalItems = Object.keys(data).length;
+                
+                Object.keys(data).forEach(stockID => {
+                    const item = data[stockID];
+                    let isInRoomA = false;
+                    let isInRoomB = false;
+                    let isMissing = false;
+                    let lastSeen = 0;
+                    
+                    // Check all events for this item
+                    Object.keys(item).forEach(eventType => {
+                        const timestamp = item[eventType];
+                        
+                        if (eventType.includes('RoomA')) {
+                            roomAEvents.push({
+                                stockID: stockID,
+                                type: eventType,
+                                timestamp: timestamp,
+                                statusClass: eventType.includes('Input') ? 'status-success' : 'status-warning'
+                            });
+                            
+                            if (eventType.includes('Input') || eventType.includes('Return')) {
+                                isInRoomA = true;
+                                lastSeen = Math.max(lastSeen, parseInt(timestamp));
+                            }
+                        }
+                        
+                        if (eventType.includes('RoomB')) {
+                            roomBEvents.push({
+                                stockID: stockID,
+                                type: eventType,
+                                timestamp: timestamp,
+                                statusClass: eventType.includes('Input') ? 'status-success' : 'status-warning'
+                            });
+                            
+                            if (eventType.includes('Input')) {
+                                isInRoomB = true;
+                                lastSeen = Math.max(lastSeen, parseInt(timestamp));
+                            }
+                        }
+                        
+                        if (eventType === 'Missing') {
+                            isMissing = true;
+                            missingCount++;
+                            
+                            missingItems.push({
+                                stockID: stockID,
+                                lastSeen: lastSeen
+                            });
+                        }
+                    });
+                    
+                    // Update counters
+                    if (isInRoomA) inRoomA++;
+                    if (isInRoomB) inRoomB++;
+                });
+                
+                // Sort events by timestamp (newest first)
+                roomAEvents.sort((a, b) => parseInt(b.timestamp) - parseInt(a.timestamp));
+                roomBEvents.sort((a, b) => parseInt(b.timestamp) - parseInt(a.timestamp));
+                missingItems.sort((a, b) => parseInt(b.lastSeen) - parseInt(a.lastSeen));
+                
+                // Limit to 10 most recent events for each room
+                roomAEvents = roomAEvents.slice(0, 10);
+                roomBEvents = roomBEvents.slice(0, 10);
+            }
+            
+            updateUI();
+        }
+
+        // Listen for changes in the Firebase database
+        stockRef.on('value', processData, (error) => {
+            console.error('Firebase error:', error);
+            document.getElementById('room-a-status').textContent = 'Error';
+            document.getElementById('room-b-status').textContent = 'Error';
+            document.getElementById('missing-status').textContent = 'Error';
+        });
+
+        // Initial data load
+        stockRef.once('value').then(processData);
+    </script>
+</body>
+</html>
